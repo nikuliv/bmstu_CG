@@ -1,6 +1,7 @@
 
 from front import *
 from back import *
+import time
 
 sg.theme('LightGreen6')  # Add a touch of color
 
@@ -20,6 +21,7 @@ layout = [[sg.Text('Введите координаты точек через п
 
 # Create the Window
 window = sg.Window('Лабораторная работа №1 Никуленко И.В.', layout)
+figure = None
 # Event Loop to process "events" and get the "values" of the inputs
 while True:
     event, values = window.read()
@@ -81,7 +83,14 @@ while True:
     elif event == 'Запуск':
         dots1 = convert_table_data(set_1)
         dots2 = convert_table_data(set_2)
-        main_calculation(dots1, dots2)
+        start_time = time.time()
+        data = main_calculation(dots1, dots2)
+        if data:
+            res_wind = make_win_res(data[0])
+            res_wind.TKroot.minsize(720, 750)
+            figure = ans_draw(res_wind, figure, data[1])
+
+        print("--- %s seconds ---" % (time.time() - start_time))
 
     window['set1'].update(set_1)
     window['set2'].update(set_2)

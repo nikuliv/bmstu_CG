@@ -1,8 +1,9 @@
 import sympy as sy
+from scipy.optimize import root
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.patches as pat
+from math import fabs
 from tkinter import messagebox as msg
+from front import ans_draw
 
 
 # calculating funcs
@@ -58,7 +59,7 @@ def find_intersection_point(radius, center, a, b, c):
     x, y = sy.symbols('x, y')
     eq1 = sy.Eq((x - center[0]) * (x - center[0]) + (y - center[1]) * (y - center[1]), radius * radius)
     eq2 = sy.Eq(a * x + b * y + c, 0)
-    result = sy.solve([eq1, eq2], [x, y])
+    result = sy.solve([eq1, eq2], [x, y], simplyfy=False, rational=False, quick=True, minimal=True)
     # print("\nResult type: ", type(result[0]))
     # print("Result[0] type: ", type(result[0][0]))
     res = [0, 0]
@@ -67,14 +68,34 @@ def find_intersection_point(radius, center, a, b, c):
     return res
 
 
+# def find_intersection_point(radius, center, a, b, c):
+#     def equations(vars, *data):
+#         x, y = vars
+#         radius, center, a, b, c = data
+#         eq1 = (x - center[0]) * (x - center[0]) + (y - center[1]) * (y - center[1]) - radius * radius
+#         eq2 = a * x + b * y + c
+#         return [eq1, eq2]
+#     data = (radius, center, a, b, c)
+#     result = root(equations, [1.0, 1.0], args=data, method='krylov')
+#     # print("\nResult type: ", type(result[0]))
+#     # print("Result[0] type: ", type(result[0][0]))
+#     res = [0, 0]
+#     res[0] = complex(result.get('x')[0]).real
+#     res[1] = complex(result.get('x')[1]).real
+#     return res
+
+
 def find_lines_intersection_point(a1, b1, c1, a2, b2, c2):
     x, y = sy.symbols('x, y')
     eq1 = sy.Eq(a1 * x + b1 * y + c1, 0)
     eq2 = sy.Eq(a2 * x + b2 * y + c2, 0)
-    result = sy.solve([eq1, eq2], [x, y])
-    res = []
-    res.append(result[x])
-    res.append(result[y])
+    result = sy.solve([eq1, eq2], [x, y], simplyfy=False, rational=False)
+    if len(result) == 1:
+        res = None
+    else:
+        res = []
+        res.append(result[x])
+        res.append(result[y])
     return res
 
 
@@ -120,6 +141,7 @@ def determ_interior_tangents(tangents_list, f_circle_center, s_circle_center, ra
     return result, intersec
 
 
+
 def calculate_square(center1, center2, radius1, radius2):
     tangents_forms = tangents(center1, center2, radius1, radius2)
     if not tangents_forms:
@@ -129,8 +151,8 @@ def calculate_square(center1, center2, radius1, radius2):
     temp = determ_points_dist(inter_point[0], inter_point[1], tang_points[0][0][0], tang_points[0][0][1])
     square += radius1 * temp
     temp = determ_points_dist(inter_point[0], inter_point[1], tang_points[0][1][0], tang_points[0][1][1])
-    square += radius2 * temp
-    return square, tang_points
+    square -= radius2 * temp
+    return fabs(square), tang_points
 
 
 def find_radius(dot1, dot2, dot3):
@@ -149,14 +171,14 @@ def main_calculation(set1, set2):
     if len(set1) <= 2 or len(set2) <= 2:
         msg.showinfo("Ошибка выполнения",
                      "Требуется больше точек\nдля выполнения программы")
-        return
+        return None
 
     result_circles = [[[None, None], None], [[None, None], None]]
     tangent_points = None
     min_square = None
     degenerates = 0
-
-    for i in range(len(set1)):
+    circle1_points, circle2_points = [], []
+    for i in range(len(set1) - 2):
         for j in range(i + 1, len(set1)):
             for k in range(j + 1, len(set1)):
                 s1_dot_1, s1_dot_2, s1_dot_3 = set1[i], set1[j], set1[k]
@@ -164,87 +186,46 @@ def main_calculation(set1, set2):
                     s1_radius = find_radius(s1_dot_1, s1_dot_2, s1_dot_3)
                 except:
                     continue
-                for l in range(len(set2)):
-                    for m in range(i + 1, len(set2)):
-                        for n in range(j + 1, len(set2)):
-                            s2_dot_1, s2_dot_2, s2_dot_3 = set2[i], set2[j], set2[k]
+                for l in range(len(set2) - 2):
+                    for m in range(l + 1, len(set2)):
+                        for n in range(m + 1, len(set2)):
+                            s2_dot_1, s2_dot_2, s2_dot_3 = set2[l], set2[m], set2[n]
                             try:
                                 s2_radius = find_radius(s2_dot_1, s2_dot_2, s2_dot_3)
                             except:
                                 continue
                             s1_circle_center = find_circle_center(s1_dot_1, s1_dot_2, s1_dot_3)
                             s2_circle_center = find_circle_center(s2_dot_1, s2_dot_2, s2_dot_3)
-                            temp_square, temp_tangents = calculate_square(s1_circle_center, s2_circle_center, s1_radius,
-                                                                          s2_radius)
+                            try:
+                                temp_square, temp_tangents = calculate_square(s1_circle_center, s2_circle_center,
+                                                                              s1_radius,
+                                                                              s2_radius)
+                            except:
+                                degenerates += 1
+                                continue
                             if temp_square == -1 or temp_square == 0:
                                 degenerates += 1
                             else:
-                                if not min_square or temp_square - min_square < 1e-7:
+                                if min_square is None or temp_square - min_square < 1e-7:
                                     result_circles = [[s1_circle_center, s1_radius], [s2_circle_center, s2_radius]]
                                     tangent_points = temp_tangents
                                     min_square = temp_square
-    if not min_square:
+                                    circle1_points, circle2_points = [], []
+                                    circle1_points.append([i + 1, s1_dot_1[0], s1_dot_1[1]])
+                                    circle1_points.append([j + 1, s1_dot_2[0], s1_dot_2[1]])
+                                    circle1_points.append([k + 1, s1_dot_3[0], s1_dot_3[1]])
+                                    circle2_points.append([l + 1, s2_dot_1[0], s2_dot_1[1]])
+                                    circle2_points.append([m + 1, s2_dot_2[0], s2_dot_2[1]])
+                                    circle2_points.append([n + 1, s2_dot_3[0], s2_dot_3[1]])
+
+    if min_square is None:
         msg.showinfo("Не найдено решений",
-                     "Количество вырожденных случаев:", degenerates)
-        return
+                     "Количество вырожденных случаев: %d" % degenerates)
+        return None
     else:
-        ans_draw(result_circles[0], result_circles[1], tangent_points)
+        print(min_square, degenerates)
+        return [circle1_points, circle2_points, tangent_points, min_square], \
+               [result_circles[0], result_circles[1], tangent_points]
 
 
-def ans_draw(circle1, circle2, tangents):
-    circle_1 = pat.Circle((circle1[0][0], circle1[0][1]), circle1[1], color='b', fill=False)
-    circle_2 = pat.Circle((circle2[0][0], circle2[0][1]), circle2[1], color='b', fill=False)
 
-    # tangent 1 - line
-    plt.plot([tangents[0][0][0], tangents[0][1][0]], [tangents[0][0][1], tangents[0][1][1]], color='r', lw=2)
-
-    # tangent 2 - line
-    plt.plot([tangents[1][0][0], tangents[1][1][0]], [tangents[1][0][1], tangents[1][1][1]], color='r', lw=2)
-
-    # circle 1 - first radius
-    plt.plot([tangents[0][0][0], circle1[0][0]], [tangents[0][0][1], circle1[0][1]], color='r', lw=2)
-
-    # circle 1 - second radius
-    plt.plot([tangents[1][0][0], circle1[0][0]], [tangents[1][0][1], circle1[0][1]], color='r', lw=2)
-
-    # circle 2 - first radius
-    plt.plot([circle2[0][0], tangents[0][1][0]], [circle2[0][1], tangents[0][1][1]], color='r', lw=2)
-
-    # circle 2 - second radius
-    plt.plot([circle2[0][0], tangents[1][1][0]], [circle2[0][1], tangents[1][1][1]], color='r', lw=2)
-
-    # tangent №1 first point
-    plt.plot(tangents[0][0][0], tangents[0][0][1], 'ro', color='black')
-    centr_str = '({:.2f}, {:.2f})'.format(tangents[0][0][0], tangents[0][0][1])
-    plt.text(tangents[0][0][0] + 0.25, tangents[0][0][1] + 0.25, centr_str)
-
-    # tangent №1 second point
-    plt.plot(tangents[0][1][0], tangents[0][1][1], 'ro', color='black')
-    centr_str = '({:.2f}, {:.2f})'.format(tangents[0][1][0], tangents[0][1][1])
-    plt.text(tangents[0][1][0] + 0.25, tangents[0][1][1] + 0.25, centr_str)
-
-    # tangent №2 first point
-    plt.plot(tangents[1][0][0], tangents[1][0][1], 'ro', color='black')
-    centr_str = '({:.2f}, {:.2f})'.format(tangents[1][0][0], tangents[1][0][1])
-    plt.text(tangents[1][0][0] + 0.25, tangents[1][0][1] + 0.25, centr_str)
-
-    # tangent №2 second point
-    plt.plot(tangents[1][1][0], tangents[1][1][1], 'ro', color='black')
-    centr_str = '({:.2f}, {:.2f})'.format(tangents[1][1][0], tangents[1][1][1])
-    plt.text(tangents[1][1][0] + 0.25, tangents[1][1][1] + 0.25, centr_str)
-
-    # circle 1 - center
-    plt.plot(circle1[0][0], circle1[0][1], 'ro', color='black')
-    centr_str = '({:.2f}, {:.2f})'.format(circle1[0][0], circle1[0][1])
-    plt.text(circle1[0][0] + 0.25, circle1[0][1] + 0.25, centr_str)
-
-    # circle 2 - center
-    plt.plot(circle2[0][0], circle2[0][1], 'ro', color='black')
-    centr_str = '({:.2f}, {:.2f})'.format(circle2[0][0], circle2[0][1])
-    plt.text(circle2[0][0] + 0.25, circle2[0][1] + 0.25, centr_str)
-
-    fig = plt.gcf()
-    ax = fig.gca()
-    ax.add_patch(circle_1)
-    ax.add_patch(circle_2)
-    plt.show(block=False)
